@@ -26,6 +26,3 @@ Issues   = "https://github.com/liutao12632/pyLibmpsse/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-pyLibmpsse = ["*.dll"]  # 如果后续决定附带 DLL
