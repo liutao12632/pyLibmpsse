@@ -12,7 +12,7 @@ import ctypes
 from typing import Optional
 from .errors import DLLLoadError, PlatformError
 
-class DLLLoader:
+class LibraryLoader:
 
     def __init__(self, ftd2xx_path=None, libmpsse_path=None):
         self.ftd2xx_dll = None

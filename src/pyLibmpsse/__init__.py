@@ -1,3 +1,3 @@
-from ._dll import DLLLoader
+from .library_loader import LibraryLoader
 
-__all__ = ["DLLLoader"]
+__all__ = ["LibraryLoader"]

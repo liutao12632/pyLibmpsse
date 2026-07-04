@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/pyLibmpsse/__init__.py
+src/pyLibmpsse/errors.py
+src/pyLibmpsse/library_loader.py
+src/pyLibmpsse.egg-info/PKG-INFO
+src/pyLibmpsse.egg-info/SOURCES.txt
+src/pyLibmpsse.egg-info/dependency_links.txt
+src/pyLibmpsse.egg-info/top_level.txt
+tests/test_file.py
