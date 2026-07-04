@@ -1,8 +1,6 @@
 """
 Load ftd2xx.dll and libmpsse.dll.
 Now only support windows platform.
-Libray will use path given by user.
-if not given, will use the path under same directory.
 """
 
 import inspect
