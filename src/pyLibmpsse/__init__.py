@@ -1,3 +1,3 @@
-from .library_loader import LibraryLoader
+from .libmpsse_bindings import LibMPSSEBindings
 
-__all__ = ["LibraryLoader"]
+__all__ = ["LibMPSSEBindings"]
