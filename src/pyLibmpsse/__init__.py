@@ -1,3 +1,4 @@
-from .libmpsse_bindings import LibMPSSEBindings
+from .libmpsse_bindings import LibMPSSELoader
+from .spi import SPIInterface
 
-__all__ = ["LibMPSSEBindings"]
+__all__ = ["LibMPSSELoader", "SPIInterface"]

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python wrapper for libmpsse — FTDI MPSSE (SPI/I2C/JTAG) operations"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 authors = [
     {name = "Nikolas.Young", email = "nikolas_young@foxmail.com"},
 ]
@@ -17,12 +17,18 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.12",
 ]
 
 [project.urls]
 Homepage = "https://github.com/liutao12632/pyLibmpsse"
 Issues   = "https://github.com/liutao12632/pyLibmpsse/issues"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests that require external DLLs or hardware integration",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
