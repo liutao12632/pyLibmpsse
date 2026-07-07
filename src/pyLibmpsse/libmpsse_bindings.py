@@ -10,6 +10,32 @@ import ctypes
 from typing import Optional
 from .errors import DLLLoadError, PlatformError
 
+class ChannelConfig (ctypes.Structure):
+    """
+    C structure definition for ChannelConfig.
+
+    Attributes:
+        ClockRate: Clock rate in Hz.
+        LatencyTimer: Latency timer value in milliseconds.
+        configOptions: Configuration options (bitmask).
+        Pin: Pin configuration (bitmask).
+    """
+    """
+    C definition:
+        typedef struct {
+            uint32 ClockRate;
+            uint8 LatencyTimer;
+            uint32 configOptions;
+            uint32 Pin;  
+        } ChannelConfig;
+    """
+    _fields_ = [
+        ("ClockRate", ctypes.c_uint32),
+        ("LatencyTimer", ctypes.c_uint8),
+        ("configOptions", ctypes.c_uint32),
+        ("Pin", ctypes.c_uint32)
+    ]
+
 class FT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
     """
     C structure definition for FT_DEVICE_LIST_INFO_NODE.
@@ -75,6 +101,42 @@ class LibMPSSELoader:
             ctypes.c_uint32, ctypes.POINTER(FT_DEVICE_LIST_INFO_NODE)]
         self.libmpsse_dll.SPI_GetChannelInfo.restype = ctypes.c_uint32
 
+        # function prototype: FT_STATUS SPI_OpenChannel (uint32 index, FT_HANDLE *handle)
+        self.libmpsse_dll.SPI_OpenChannel.argtypes = [
+            ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p)]
+        self.libmpsse_dll.SPI_OpenChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_InitChannel (FT_HANDLE handle, ChannelConfig *config)
+        self.libmpsse_dll.SPI_InitChannel.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(ChannelConfig)]
+        self.libmpsse_dll.SPI_InitChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_CloseChannel (FT_HANDLE handle)
+        self.libmpsse_dll.SPI_CloseChannel.argtypes = [ctypes.c_void_p]
+        self.libmpsse_dll.SPI_CloseChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_Read(FT_HANDLE handle, uint8 *buffer, uint32 sizeToTransfer, uint32 *sizeTransferred, uint32 transferOptions)#
+        self.libmpsse_dll.SPI_Read.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
+        self.libmpsse_dll.SPI_Read.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_Write(FT_HANDLE handle, uint8 *buffer, uint32 sizeToTransfer, uint32 *sizeTransferred, uint32 transferOptions)#
+        self.libmpsse_dll.SPI_Write.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
+        self.libmpsse_dll.SPI_Write.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_ReadWrite(FT_HANDLE handle, uint8 *inBuffer, uint8 *outBuffer, uint32 sizeToTransfer, uint32 *sizeTransferred, uint32 transferOptions)#
+        self.libmpsse_dll.SPI_ReadWrite.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
+        self.libmpsse_dll.SPI_ReadWrite.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_IsBusy(FT_HANDLE handle, bool *state)
+        self.libmpsse_dll.SPI_IsBusy.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_bool)]
+        self.libmpsse_dll.SPI_IsBusy.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_ChangeCS(FT_HANDLE handle, uint32 configOptions)
+        self.libmpsse_dll.SPI_ChangeCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        self.libmpsse_dll.SPI_ChangeCS.restype = ctypes.c_uint32
 
 
     def _bind_MPSSE_function(self):
