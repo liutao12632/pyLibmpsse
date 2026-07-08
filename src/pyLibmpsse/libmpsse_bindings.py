@@ -3,9 +3,6 @@ Load ftd2xx.dll and libmpsse.dll.
 Now only support windows platform.
 """
 
-import inspect
-import os
-import sys
 import ctypes
 from typing import Optional
 from .errors import DLLLoadError, PlatformError
@@ -70,6 +67,8 @@ class FT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
         ("Description", ctypes.c_char * 64),
         ("ftHandle", ctypes.c_void_p)
     ]
+
+
 
 class LibMPSSELoader:
 
@@ -137,7 +136,6 @@ class LibMPSSELoader:
         # function prototype: FT_STATUS SPI_ChangeCS(FT_HANDLE handle, uint32 configOptions)
         self.libmpsse_dll.SPI_ChangeCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         self.libmpsse_dll.SPI_ChangeCS.restype = ctypes.c_uint32
-
 
     def _bind_MPSSE_function(self):
         if self.libmpsse_dll is None:
