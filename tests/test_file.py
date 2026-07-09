@@ -1,43 +1,44 @@
-import pytest
+import os
+
 import pyLibmpsse
+import pytest
 from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
 
+ENV_FTD2XX_DLL = "PYLIBMPSSE_FTD2XX_DLL"
+ENV_LIBMPSSE_DLL = "PYLIBMPSSE_LIBMPSSE_DLL"
+
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        pytest.skip(
+            f"Missing required environment variable: {name}. "
+            "Use scripts/run_pytest_with_dll_env.ps1 to set variables and run tests."
+        )
+    return value
+
+
+@pytest.fixture(scope="module")
+def bindings() -> LibMPSSELoader:
+    ftd2xx_path = _require_env(ENV_FTD2XX_DLL)
+    libmpsse_path = _require_env(ENV_LIBMPSSE_DLL)
+    return LibMPSSELoader(ftd2xx_path, libmpsse_path)
+
+
 @pytest.mark.integration
-def test_bindings_loads_dlls():
-    # Provide the paths to the DLLs
-    ftd2xx_path = "ftd2xx.dll"
-    libmpsse_path = r"D:\Code\Repo\LibMPSSE_1.0.7\Windows\release\build\x64\DLL\libmpsse.dll"
-
-    # Create an instance of LibMPSSEBindings
-    bindings = pyLibmpsse.libmpsse_bindings.LibMPSSELoader(ftd2xx_path, libmpsse_path)
-
-    # Check if the DLLs are loaded
+def test_bindings_loads_dlls(bindings: LibMPSSELoader):
     assert bindings.ftd2xx_dll is not None, "ftd2xx.dll should be loaded."
     assert bindings.libmpsse_dll is not None, "libmpsse.dll should be loaded."
+    assert hasattr(bindings.libmpsse_dll, "SPI_GetNumChannels"), "SPI_GetNumChannels should be bound."
 
-    # Check if the SPI_GetNumChannels function is bound correctly
-    assert hasattr(bindings.libmpsse_dll, 'SPI_GetNumChannels'), "SPI_GetNumChannels should be bound."
 
 @pytest.mark.integration
-def test_spi_get_channels_and_info():
-    # Provide the paths to the DLLs
-    ftd2xx_path = "ftd2xx.dll"
-    libmpsse_path = r"D:\Code\Repo\LibMPSSE_1.0.7\Windows\release\build\x64\DLL\libmpsse.dll"
-
-    # Create an instance of LibMPSSEBindings
-    bindings = LibMPSSELoader(ftd2xx_path, libmpsse_path)
-
-    # Check if the DLLs are loaded
-    assert bindings.ftd2xx_dll is not None, "ftd2xx.dll should be loaded."
-    assert bindings.libmpsse_dll is not None, "libmpsse.dll should be loaded."
-
-    # Check if the SPI_GetNumChannels function is bound correctly
-    assert hasattr(bindings.libmpsse_dll, 'SPI_GetNumChannels'), "SPI_GetNumChannels should be bound."
-
-    SPI_instance = pyLibmpsse.SPIInterface(bindings)
-    num = SPI_instance.get_num_channels()  # This will call the bound function and should not raise an exception
+def test_spi_get_channels_and_info(bindings: LibMPSSELoader):
+    spi = pyLibmpsse.SPIInterface(bindings)
+    num = spi.get_num_channels()
     print(f"Number of SPI channels: {num}")
 
     for index in range(num):
-        channel_info = SPI_instance.get_channel_info(index)
+        channel_info = spi.get_channel_info(index)
         print(f"Channel {index}: {channel_info}")
+    

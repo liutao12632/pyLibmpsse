@@ -85,3 +85,28 @@ status = spi.SPI_GetChannelInfo(0, ctypes.byref(info))
 busy = ctypes.c_bool(False)
 status = spi.SPI_IsBusy(handle, ctypes.byref(busy))
 ```
+
+## 5. Integration tests: DLL path via environment variables ##
+
+The integration tests under tests/ no longer hardcode local DLL paths.
+They read:
+
+- PYLIBMPSSE_FTD2XX_DLL
+- PYLIBMPSSE_LIBMPSSE_DLL
+
+Run tests with the helper script:
+
+```powershell
+./scripts/run_pytest_with_dll_env.ps1 -LibMpsseDll "D:\\path\\to\\libmpsse.dll"
+```
+
+Optional parameters:
+
+- Ftd2xxDll (default: ftd2xx.dll)
+- Pytest args passed through after named parameters
+
+Example with custom pytest args:
+
+```powershell
+./scripts/run_pytest_with_dll_env.ps1 -LibMpsseDll "D:\\path\\to\\libmpsse.dll" -Ftd2xxDll "D:\\path\\to\\ftd2xx.dll" -m integration -s
+```

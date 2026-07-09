@@ -3,6 +3,13 @@ import ctypes
 from dataclasses import dataclass
 from typing import Optional
 
+from pyLibmpsse.consts import FT_STATUS
+from pyLibmpsse.libmpsse_bindings import FT_DEVICE_LIST_INFO_NODE
+
+@dataclass(frozen=True)
+class FTHandle:
+    value: int
+
 @dataclass(frozen=True)
 class SPIChannelInfo:
     flags: int
@@ -11,7 +18,7 @@ class SPIChannelInfo:
     loc_id: int
     serial_number: str
     description: str
-    ft_handle: Optional[int]
+    ft_handle: Optional[FTHandle]
 
 class SPIInterface:
     def __init__(self, bindings):
@@ -134,22 +141,62 @@ class SPIInterface:
         return status
     
     """
-    Pythonic wrapper methods for SPI functions
+    Pythonic wrapper methods for SPI functions.
+    Suggest to use these methods for a more Pythonic interface to the SPI functions.
+    These methods handle the necessary pointer and memory management, and return Python-native types.
     """
     def get_num_channels(self) -> int:
-        num_channels = self.SPI_GetNumChannels()
+        """
+        Get the number of available SPI channels.
+        return: Number of available SPI channels."""
+        num_channels = ctypes.c_uint32()
+        status = self.SPI_GetNumChannels(ctypes.byref(num_channels))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to get number of channels. Status: {status}")
         return num_channels.value
     
     def get_channel_info(self, index) -> SPIChannelInfo:
-        info = self.SPI_GetChannelInfo(index)
+        """
+        Get information about a specific SPI channel.
+        param index: Index of the channel to retrieve information for.
+        return: SPIChannelInfo object containing the channel information.
+        """
+        chan_info = FT_DEVICE_LIST_INFO_NODE()
+        status = self.SPI_GetChannelInfo(index, ctypes.byref(chan_info))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to get channel info. Status: {status}")
         info_wrapper = SPIChannelInfo(
-            flags=info.Flags,
-            type=info.Type,
-            id=info.ID,
-            loc_id=info.LocId,
-            serial_number=info.SerialNumber.decode('utf-8').rstrip('\x00'),
-            description=info.Description.decode('utf-8').rstrip('\x00'),
-            ft_handle=info.ftHandle if info.ftHandle else None
+            flags=chan_info.Flags,
+            type=chan_info.Type,
+            id=chan_info.ID,
+            loc_id=chan_info.LocId,
+            serial_number=chan_info.SerialNumber.decode('utf-8').rstrip('\x00'),
+            description=chan_info.Description.decode('utf-8').rstrip('\x00'),
+            ft_handle=FTHandle(chan_info.ftHandle) if chan_info.ftHandle else None
         )
         return info_wrapper
+
+    def open_channel(self, index) -> FTHandle:
+        """
+        Open a specific SPI channel.
+        param index: Index of the channel to open.
+        return: FTHandle object representing the opened channel.
+        """
+        handle = ctypes.c_void_p()
+        status = self.SPI_OpenChannel(index, ctypes.byref(handle))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to open channel. Status: {status}")
+        return FTHandle(handle)
+    
+    def init_channel(self, handle: FTHandle) -> None:
+        """
+        Initialize a specific SPI channel.
+        param handle: Handle to the channel to initialize.
+        return: None. Raises RuntimeError on failure.
+        """
+        # Assuming default configuration for initialization
+        config = self.bindings.default_spi_config()
+        status = self.SPI_InitChannel(handle, ctypes.byref(config))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to initialize channel. Status: {status}")
     
