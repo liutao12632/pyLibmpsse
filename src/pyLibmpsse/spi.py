@@ -4,7 +4,15 @@ from dataclasses import dataclass
 from typing import Optional
 
 from pyLibmpsse.consts import FT_STATUS
-from pyLibmpsse.libmpsse_bindings import FT_DEVICE_LIST_INFO_NODE
+from pyLibmpsse.libmpsse_bindings import NativeFT_DEVICE_LIST_INFO_NODE, NativeChannelConfig
+
+@dataclass(frozen=True)
+class SPIChannelConfig:
+    clock_rate: int
+    latency_timer: int
+    config_options: int
+    pin: int
+    reserved: int = 0  # Reserved field for alignment, default to 0
 
 @dataclass(frozen=True)
 class FTHandle:
@@ -161,7 +169,7 @@ class SPIInterface:
         param index: Index of the channel to retrieve information for.
         return: SPIChannelInfo object containing the channel information.
         """
-        chan_info = FT_DEVICE_LIST_INFO_NODE()
+        chan_info = NativeFT_DEVICE_LIST_INFO_NODE()
         status = self.SPI_GetChannelInfo(index, ctypes.byref(chan_info))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to get channel info. Status: {status}")
@@ -186,17 +194,37 @@ class SPIInterface:
         status = self.SPI_OpenChannel(index, ctypes.byref(handle))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to open channel. Status: {status}")
-        return FTHandle(handle)
+        return FTHandle(handle.value)
     
-    def init_channel(self, handle: FTHandle) -> None:
+    def init_channel(self, handle: FTHandle, config: SPIChannelConfig) -> None:
         """
         Initialize a specific SPI channel.
         param handle: Handle to the channel to initialize.
+        param config: Configuration for the SPI channel.
         return: None. Raises RuntimeError on failure.
         """
         # Assuming default configuration for initialization
-        config = self.bindings.default_spi_config()
-        status = self.SPI_InitChannel(handle, ctypes.byref(config))
+        # Manual truncation for now: keep low bits matching native field width.
+        native_config = NativeChannelConfig(
+            ClockRate=config.clock_rate & 0xFFFFFFFF,
+            LatencyTimer=config.latency_timer & 0xFF,
+            configOptions=config.config_options & 0xFFFFFFFF,
+            Pin=config.pin & 0xFFFFFFFF,
+            Reserved=0x0  # Reserved field for alignment
+        )
+        native_handle = ctypes.c_void_p(handle.value)
+        status = self.SPI_InitChannel(native_handle, ctypes.byref(native_config))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to initialize channel. Status: {status}")
+    
+    def close_channel(self, handle: FTHandle) -> None:
+        """
+        Close a specific SPI channel.
+        param handle: Handle to the channel to close.
+        return: None. Raises RuntimeError on failure.
+        """
+        status = self.SPI_CloseChannel(ctypes.c_void_p(handle.value))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to close channel. Status: {status}")
+
     

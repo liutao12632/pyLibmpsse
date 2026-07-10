@@ -10,7 +10,7 @@ param(
 )
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$activateScript = Join-Path $repoRoot "venv\Scripts\Activate.ps1"
+$activateScript = Join-Path $repoRoot "venv_3_12_x86\Scripts\Activate.ps1"
 
 if (Test-Path $activateScript) {
     . $activateScript

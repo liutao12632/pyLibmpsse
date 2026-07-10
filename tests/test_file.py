@@ -1,8 +1,8 @@
 import os
 
-import pyLibmpsse
-import pytest
 from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
+from pyLibmpsse.spi import SPIChannelConfig, SPIInterface
+import pytest
 
 ENV_FTD2XX_DLL = "PYLIBMPSSE_FTD2XX_DLL"
 ENV_LIBMPSSE_DLL = "PYLIBMPSSE_LIBMPSSE_DLL"
@@ -34,7 +34,7 @@ def test_bindings_loads_dlls(bindings: LibMPSSELoader):
 
 @pytest.mark.integration
 def test_spi_get_channels_and_info(bindings: LibMPSSELoader):
-    spi = pyLibmpsse.SPIInterface(bindings)
+    spi = SPIInterface(bindings)
     num = spi.get_num_channels()
     print(f"Number of SPI channels: {num}")
 
@@ -42,3 +42,25 @@ def test_spi_get_channels_and_info(bindings: LibMPSSELoader):
         channel_info = spi.get_channel_info(index)
         print(f"Channel {index}: {channel_info}")
     
+@pytest.mark.integration
+def test_spi_open_and_init_channel(bindings: LibMPSSELoader):
+    
+    channel_config = SPIChannelConfig(
+        clock_rate=20000000,  # 20 MHz
+        latency_timer=1,      # 1 ms
+        config_options=0,     # Default options
+        pin=0x8B8B8B8B        # Default pin
+    )
+    spi = SPIInterface(bindings)
+    num = spi.get_num_channels()
+    if num == 0:
+        pytest.skip("No SPI channels available to test.")
+
+    handle = spi.open_channel(0)
+    assert handle is not None, "Failed to open SPI channel."
+
+    status = spi.init_channel(handle, channel_config)
+    assert status is None, "Failed to initialize SPI channel."
+
+    status = spi.close_channel(handle)
+    assert status is None, "Failed to close SPI channel."

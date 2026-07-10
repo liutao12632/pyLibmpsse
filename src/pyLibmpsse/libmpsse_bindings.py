@@ -7,7 +7,7 @@ import ctypes
 from typing import Optional
 from .errors import DLLLoadError, PlatformError
 
-class ChannelConfig (ctypes.Structure):
+class NativeChannelConfig (ctypes.Structure):
     """
     C structure definition for ChannelConfig.
 
@@ -16,6 +16,7 @@ class ChannelConfig (ctypes.Structure):
         LatencyTimer: Latency timer value in milliseconds.
         configOptions: Configuration options (bitmask).
         Pin: Pin configuration (bitmask).
+        Reserved: Reserved field for alignment. Should not be used directly.
     """
     """
     C definition:
@@ -24,16 +25,18 @@ class ChannelConfig (ctypes.Structure):
             uint8 LatencyTimer;
             uint32 configOptions;
             uint32 Pin;  
+            uint16 Reserved;
         } ChannelConfig;
     """
     _fields_ = [
         ("ClockRate", ctypes.c_uint32),
         ("LatencyTimer", ctypes.c_uint8),
         ("configOptions", ctypes.c_uint32),
-        ("Pin", ctypes.c_uint32)
+        ("Pin", ctypes.c_uint32),
+        ("Reserved", ctypes.c_uint16)  # Reserved field for alignment
     ]
 
-class FT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
+class NativeFT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
     """
     C structure definition for FT_DEVICE_LIST_INFO_NODE.
 
@@ -86,6 +89,15 @@ class LibMPSSELoader:
 
         self._load_dlls(libmpsse_path, ftd2xx_path)
         self._bind_MPSSE_function()
+        self._bind_SPI_functions()
+        self._init_mpsse_library()
+
+    def _init_mpsse_library(self):
+        # Some environments do not reliably trigger automatic init paths.
+        # Call Init_libMPSSE explicitly when the symbol is exported.
+        init_func = getattr(self.libmpsse_dll, "Init_libMPSSE", None)
+        if init_func is not None:
+            init_func()
 
     def _bind_SPI_functions(self):
         # Bind SPI functions
@@ -97,7 +109,7 @@ class LibMPSSELoader:
 
         # function prototype: FT_STATUS SPI_GetChannelInfo (uint32 index, FT_DEVICE_LIST_INFO_NODE *chanInfo)#
         self.libmpsse_dll.SPI_GetChannelInfo.argtypes = [
-            ctypes.c_uint32, ctypes.POINTER(FT_DEVICE_LIST_INFO_NODE)]
+            ctypes.c_uint32, ctypes.POINTER(NativeFT_DEVICE_LIST_INFO_NODE)]
         self.libmpsse_dll.SPI_GetChannelInfo.restype = ctypes.c_uint32
 
         # function prototype: FT_STATUS SPI_OpenChannel (uint32 index, FT_HANDLE *handle)
@@ -107,7 +119,7 @@ class LibMPSSELoader:
 
         # function prototype: FT_STATUS SPI_InitChannel (FT_HANDLE handle, ChannelConfig *config)
         self.libmpsse_dll.SPI_InitChannel.argtypes = [
-            ctypes.c_void_p, ctypes.POINTER(ChannelConfig)]
+            ctypes.c_void_p, ctypes.POINTER(NativeChannelConfig)]
         self.libmpsse_dll.SPI_InitChannel.restype = ctypes.c_uint32
 
         # function prototype: FT_STATUS SPI_CloseChannel (FT_HANDLE handle)
@@ -140,8 +152,16 @@ class LibMPSSELoader:
     def _bind_MPSSE_function(self):
         if self.libmpsse_dll is None:
             raise PlatformError("libmpsse.dll is not loaded. Please call load_dlls() first.")
-        
-        self._bind_SPI_functions()
+
+        init_func = getattr(self.libmpsse_dll, "Init_libMPSSE", None)
+        if init_func is not None:
+            init_func.argtypes = []
+            init_func.restype = None
+
+        cleanup_func = getattr(self.libmpsse_dll, "Cleanup_libMPSSE", None)
+        if cleanup_func is not None:
+            cleanup_func.argtypes = []
+            cleanup_func.restype = None
 
     def _load_dlls(self,
                   libmpsse_path: Optional[str] = None,
