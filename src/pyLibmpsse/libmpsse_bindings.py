@@ -90,6 +90,7 @@ class LibMPSSELoader:
         self._load_dlls(libmpsse_path, ftd2xx_path)
         self._bind_MPSSE_function()
         self._bind_SPI_functions()
+
         self._init_mpsse_library()
 
     def _init_mpsse_library(self):
