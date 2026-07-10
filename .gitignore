@@ -4,3 +4,6 @@
 /.vscode/
 /tests/__pycache__/
 /src/pyLibmpsse.egg-info/
+/build/
+/.idea/
+/venv_3_12_x86/
