@@ -3,4 +3,4 @@
 /.pytest_cache/
 /.vscode/
 /tests/__pycache__/
-/src/pyLibmpsse/pyLibmpsse.egg-info/
+/src/pyLibmpsse.egg-info/
