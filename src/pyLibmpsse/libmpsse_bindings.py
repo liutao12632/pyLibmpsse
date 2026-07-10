@@ -142,13 +142,17 @@ class LibMPSSELoader:
             ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
         self.libmpsse_dll.SPI_ReadWrite.restype = ctypes.c_uint32
 
-        # function prototype: FT_STATUS SPI_IsBusy(FT_HANDLE handle, bool *state)
-        self.libmpsse_dll.SPI_IsBusy.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_bool)]
+        # function prototype: FT_STATUS SPI_IsBusy(FT_HANDLE handle, BOOL *state)
+        self.libmpsse_dll.SPI_IsBusy.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
         self.libmpsse_dll.SPI_IsBusy.restype = ctypes.c_uint32
 
         # function prototype: FT_STATUS SPI_ChangeCS(FT_HANDLE handle, uint32 configOptions)
         self.libmpsse_dll.SPI_ChangeCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         self.libmpsse_dll.SPI_ChangeCS.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS SPI_ToggleCS(FT_HANDLE handle, BOOL state)
+        self.libmpsse_dll.SPI_ToggleCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        self.libmpsse_dll.SPI_ToggleCS.restype = ctypes.c_uint32
 
     def _bind_MPSSE_function(self):
         if self.libmpsse_dll is None:

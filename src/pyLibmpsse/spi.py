@@ -148,6 +148,18 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_ChangeCS(handle, configOptions)
         return status
     
+    def SPI_ToggleCS(self, handle, state) -> ctypes.c_uint32:
+        """
+        Toggle the chip select state for a specific SPI channel.
+        param handle: Handle to the channel to toggle.
+        param state: Boolean indicating the desired chip select state (True for high, False for low).
+        return: FT_STATUS indicating success or failure.
+        """
+        native_handle = ctypes.c_void_p(handle.value)
+        native_state = ctypes.c_uint32(1 if state else 0)
+        status = self.bindings.libmpsse_dll.SPI_ToggleCS(native_handle, native_state)
+        return status
+    
     """
     Pythonic wrapper methods for SPI functions.
     Suggest to use these methods for a more Pythonic interface to the SPI functions.
@@ -227,4 +239,90 @@ class SPIInterface:
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to close channel. Status: {status}")
 
+    def read(self, handle: FTHandle, size: int, transfer_options: int = 0) -> bytes:
+        """
+        Read data from a specific SPI channel.
+        param handle: Handle to the channel to read from.
+        param size: Number of bytes to read.
+        param transfer_options: Options for the SPI transfer.
+        return: Bytes object containing the read data. Raises RuntimeError on failure.
+        """
+        read_data_buffer = (ctypes.c_ubyte * size)()    #Initial value is set to default 0.#
+        size_transferred = ctypes.c_uint32()
+        native_handle = ctypes.c_void_p(handle.value)
+        native_size = ctypes.c_uint32(size)
+        native_transfer_options = ctypes.c_uint32(transfer_options)
+
+        status = self.SPI_Read(native_handle,
+                                read_data_buffer,
+                                native_size,
+                                ctypes.byref(size_transferred),
+                                native_transfer_options)
+        
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to read from channel. Status: {status}")
+        return bytes(read_data_buffer[:size_transferred.value])
+
+    def write(self, handle: FTHandle, data: bytes, transfer_options: int = 0) -> int:
+        """
+        Write data to a specific SPI channel.
+        param handle: Handle to the channel to write to.
+        param data: Bytes object containing the data to write.
+        param transfer_options: Options for the SPI transfer.
+        return: Number of bytes actually written. Raises RuntimeError on failure.
+        """
+        size_to_transfer = len(data)
+        write_data_buffer = (ctypes.c_ubyte * size_to_transfer).from_buffer_copy(data)
+        size_transferred = ctypes.c_uint32()
+        native_handle = ctypes.c_void_p(handle.value)
+        native_size = ctypes.c_uint32(size_to_transfer)
+        native_transfer_options = ctypes.c_uint32(transfer_options)
+
+        status = self.SPI_Write(native_handle,
+                                 write_data_buffer,
+                                 native_size,
+                                 ctypes.byref(size_transferred),
+                                 native_transfer_options)
+
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to write to channel. Status: {status}")
+        return size_transferred.value
     
+    def read_write(self, handle: FTHandle, write_data: bytes, transfer_options: int = 0) -> bytes:
+        """
+        Write data to a specific SPI channel and read data back in a single operation.
+        param handle: Handle to the channel to write to and read from.
+        param write_data: Bytes object containing the data to write.
+        param read_size: Number of bytes to read back.
+        param transfer_options: Options for the SPI transfer.
+        return: Bytes object containing the read data. Raises RuntimeError on failure.
+        """
+        size_to_transfer = len(write_data)
+        write_data_buffer = (ctypes.c_ubyte * size_to_transfer).from_buffer_copy(write_data)
+        read_data_buffer = (ctypes.c_ubyte * size_to_transfer)()
+        size_transferred = ctypes.c_uint32()    
+        native_handle = ctypes.c_void_p(handle.value)
+        native_size = ctypes.c_uint32(size_to_transfer)
+        native_transfer_options = ctypes.c_uint32(transfer_options)
+
+        status = self.SPI_ToggleCS(native_handle, False)
+        
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to write/read from channel. Status: {status}")
+        
+        status = self.SPI_ReadWrite(native_handle,
+                                    read_data_buffer,
+                                    write_data_buffer,
+                                    native_size,
+                                    ctypes.byref(size_transferred),
+                                    native_transfer_options)
+        
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to write/read from channel. Status: {status}")        
+
+        status = self.SPI_ToggleCS(native_handle, True)
+
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to write/read from channel. Status: {status}")
+        return bytes(read_data_buffer[:size_transferred.value])
+

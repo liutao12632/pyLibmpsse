@@ -1,7 +1,9 @@
 import os
 
+from pyLibmpsse.consts import SPI_TRANSFER_OPTIONS
 from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
 from pyLibmpsse.spi import SPIChannelConfig, SPIInterface
+
 import pytest
 
 ENV_FTD2XX_DLL = "PYLIBMPSSE_FTD2XX_DLL"
@@ -66,9 +68,9 @@ def test_spi_open_and_init_channel(bindings: LibMPSSELoader):
     assert status is None, "Failed to close SPI channel."
 
 @pytest.mark.integration
-def test_spi_read_write(bindings: LibMPSSELoader):
+def test_spi_read(bindings: LibMPSSELoader):
     channel_config = SPIChannelConfig(
-        clock_rate=20000000,  # 20 MHz
+        clock_rate=4000000,   # 4 MHz
         latency_timer=1,      # 1 ms
         config_options=0,
         pin=0x8B8B8B8B
@@ -85,14 +87,14 @@ def test_spi_read_write(bindings: LibMPSSELoader):
     assert status is None, "Failed to initialize SPI channel."
 
     # Prepare data for read/write test
-    write_data = bytes([0xAA, 0xBB, 0xCC])
-    read_buffer = bytearray(len(write_data))
+    write_data = bytes([0xA4, 0x04, 0x30, 0x10, 0x60, 0x04, 0x00, 0x0, 0x0, 0x0, 0x0]) #02 04 30 10 60 04 00#
 
-    # Perform read/write operation
-    status = spi.read_write(handle, write_data, read_buffer)
-    assert status is None, "Failed to perform SPI read/write operation."
+    read_data = spi.read_write(handle,
+                                write_data,
+                                transfer_options=0x0)
 
-    print(f"Read data: {list(read_buffer)}")
+    print(f"Read data: {read_data}")
 
     status = spi.close_channel(handle)
     assert status is None, "Failed to close SPI channel."
+
