@@ -48,8 +48,8 @@ def test_spi_open_and_init_channel(bindings: LibMPSSELoader):
     channel_config = SPIChannelConfig(
         clock_rate=20000000,  # 20 MHz
         latency_timer=1,      # 1 ms
-        config_options=0,     # Default options
-        pin=0x8B8B8B8B        # Default pin
+        config_options=0,
+        pin=0x8B8B8B8B     
     )
     spi = SPIInterface(bindings)
     num = spi.get_num_channels()
@@ -61,6 +61,38 @@ def test_spi_open_and_init_channel(bindings: LibMPSSELoader):
 
     status = spi.init_channel(handle, channel_config)
     assert status is None, "Failed to initialize SPI channel."
+
+    status = spi.close_channel(handle)
+    assert status is None, "Failed to close SPI channel."
+
+@pytest.mark.integration
+def test_spi_read_write(bindings: LibMPSSELoader):
+    channel_config = SPIChannelConfig(
+        clock_rate=20000000,  # 20 MHz
+        latency_timer=1,      # 1 ms
+        config_options=0,
+        pin=0x8B8B8B8B
+    )
+    spi = SPIInterface(bindings)
+    num = spi.get_num_channels()
+    if num == 0:
+        pytest.skip("No SPI channels available to test.")
+
+    handle = spi.open_channel(0)
+    assert handle is not None, "Failed to open SPI channel."
+
+    status = spi.init_channel(handle, channel_config)
+    assert status is None, "Failed to initialize SPI channel."
+
+    # Prepare data for read/write test
+    write_data = bytes([0xAA, 0xBB, 0xCC])
+    read_buffer = bytearray(len(write_data))
+
+    # Perform read/write operation
+    status = spi.read_write(handle, write_data, read_buffer)
+    assert status is None, "Failed to perform SPI read/write operation."
+
+    print(f"Read data: {list(read_buffer)}")
 
     status = spi.close_channel(handle)
     assert status is None, "Failed to close SPI channel."
