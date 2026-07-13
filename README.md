@@ -7,27 +7,27 @@ A sample wrapper for LibMPSSE library.
 ## 2. Requirements ##
 
 - Windows platform
-- Python >= 3.12
+- Python >= 3.9
 - libmpsse.dll
 - Install d2xx driver
 
 ## 3. Architecture ##
 
 ```text
-pyLibMPSSE/
-├── pyLibMPSSE/                 # 主包目录
-│   ├── __init__.py             # 包初始化，导出主要接口（如 I2C, SPI 类）
-│   ├── libmpsse_bindings.py    # 绑定层：加载 DLL，声明 C 函数原型，定义结构体
-│   ├── constants.py            # 常量层：定义 FT_STATUS、I2C/SPI 配置等枚举和常量
-│   ├── i2c.py                  # I2C 功能高层封装
-│   ├── spi.py                  # SPI 功能高层封装
-│   ├── gpio.py                 # GPIO 功能高层封装
-│   └── exceptions.py           # 自定义异常类
-├── tests/                      # 单元测试目录
-├── examples/                   # 示例脚本目录
-├── doc/                        # 开发所用到的手册
-├── README.md
-└── setup.py                    # 安装脚本
+pyLibmpsse/
+├── src/
+│   └── pyLibmpsse/                # 主包目录（src 布局）
+│       ├── __init__.py           # 包初始化，导出 SPIInterface / SPIChannelConfig 等
+│       ├── libmpsse_bindings.py  # 绑定层：加载 DLL，声明 C 函数原型，定义结构体
+│       ├── consts.py             # 常量层：FT_STATUS、SPI/I2C/GPIO 等枚举与常量
+│       ├── spi.py                # SPI 高层封装 + 低层绑定（含 GPIO 高层封装）
+│       └── errors.py             # 自定义异常类（PlatformError / DLLLoadError）
+├── tests/                        # 测试目录（pytest：集成测试 + 无硬件单元测试）
+├── scripts/                      # 辅助脚本（设置 DLL 环境变量并运行测试）
+├── doc/                          # FTDI 官方头文件与手册
+├── pyproject.toml                # 打包与构建配置（setuptools）
+├── requirements.txt
+└── README.md
 ```
 
 ## 4. SPI low-level API pointer contract (C-style) ##
