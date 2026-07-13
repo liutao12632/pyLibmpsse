@@ -75,7 +75,7 @@ class NativeFT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
 
 class LibMPSSELoader:
 
-    def __init__(self, ftd2xx_path=None, libmpsse_path=None):
+    def __init__(self, libmpsse_path=None, ftd2xx_path=None):
         self.ftd2xx_dll = None
         self.libmpsse_dll = None
         
@@ -88,17 +88,7 @@ class LibMPSSELoader:
         self.load_mpsse_path = libmpsse_path
 
         self._load_dlls(libmpsse_path, ftd2xx_path)
-        self._bind_MPSSE_function()
         self._bind_SPI_functions()
-
-        self._init_mpsse_library()
-
-    def _init_mpsse_library(self):
-        # Some environments do not reliably trigger automatic init paths.
-        # Call Init_libMPSSE explicitly when the symbol is exported.
-        init_func = getattr(self.libmpsse_dll, "Init_libMPSSE", None)
-        if init_func is not None:
-            init_func()
 
     def _bind_SPI_functions(self):
         # Bind SPI functions
@@ -154,19 +144,22 @@ class LibMPSSELoader:
         self.libmpsse_dll.SPI_ToggleCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         self.libmpsse_dll.SPI_ToggleCS.restype = ctypes.c_uint32
 
-    def _bind_MPSSE_function(self):
-        if self.libmpsse_dll is None:
-            raise PlatformError("libmpsse.dll is not loaded. Please call load_dlls() first.")
+        # function prototype: FT_STATUS FT_WriteGPIO(FT_HANDLE handle, UCHAR dir, UCHAR value)
+        self.libmpsse_dll.FT_WriteGPIO.argtypes = [ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint8]
+        self.libmpsse_dll.FT_WriteGPIO.restype = ctypes.c_uint32
+        
+        # function prototype: FT_STATUS FT_ReadGPIO(FT_HANDLE handle, UCHAR *value)
+        self.libmpsse_dll.FT_ReadGPIO.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8)]
+        self.libmpsse_dll.FT_ReadGPIO.restype = ctypes.c_uint32
 
-        init_func = getattr(self.libmpsse_dll, "Init_libMPSSE", None)
-        if init_func is not None:
-            init_func.argtypes = []
-            init_func.restype = None
+        # function prototype: void Init_libMPSSE(void)
+        self.libmpsse_dll.Init_libMPSSE.argtypes = []
+        self.libmpsse_dll.Init_libMPSSE.restype = None
 
-        cleanup_func = getattr(self.libmpsse_dll, "Cleanup_libMPSSE", None)
-        if cleanup_func is not None:
-            cleanup_func.argtypes = []
-            cleanup_func.restype = None
+        # function prototype: void Cleanup_libMPSSE(void);#
+        self.libmpsse_dll.Cleanup_libMPSSE.argtypes = []
+        self.libmpsse_dll.Cleanup_libMPSSE.restype = None
+
 
     def _load_dlls(self,
                   libmpsse_path: Optional[str] = None,

@@ -29,17 +29,31 @@ class SPIChannelInfo:
     ft_handle: Optional[FTHandle]
 
 class SPIInterface:
+    """SPI access for libMPSSE, exposed as two tiers of methods.
+
+    Low-level bindings (``SPI_*`` / ``FT_*``)
+        Thin, 1:1 wrappers around the C functions in libMPSSE. They mirror the C
+        signatures and return the raw ``FT_STATUS`` code. The caller is
+        responsible for ctypes pointer/buffer handling and memory management.
+        Intended for internal use or advanced callers who need direct access to
+        the underlying C API.
+
+    Pythonic helpers (``get_num_channels``, ``read``, ``write`` ...)
+        High-level methods built on top of the low-level bindings. They perform
+        the pointer/buffer marshalling, accept and return native Python types
+        (``bytes``, ``int``), and raise ``RuntimeError`` on failure instead of
+        returning a status code. These are the recommended entry points.
+    """
+
     def __init__(self, bindings):
         self.bindings = bindings
-    
-    """
-    Original low-level wrapper for SPI functions. 
-    Functions under this level are direct wrappers of the C functions in libMPSSE.
-    They are designed to be used internally by the higher-level Pythonic wrapper methods
-    or for those who want direct access to the underlying C functions.
-    Please note that these functions may require additional handling of pointers and memory
-    management, as they are direct bindings to the C library.
-    """
+
+    # ==================================================================
+    # Low-level bindings: direct 1:1 wrappers of the libMPSSE C functions.
+    # The caller manages ctypes pointers/buffers; each method returns the
+    # raw FT_STATUS code. Prefer the Pythonic helpers below unless you need
+    # direct access to the C API.
+    # ==================================================================
     def SPI_GetNumChannels(self, numChannels) -> ctypes.c_uint32:
         """
         Get the number of available SPI channels.
@@ -155,16 +169,35 @@ class SPIInterface:
         param state: Boolean indicating the desired chip select state (True for high, False for low).
         return: FT_STATUS indicating success or failure.
         """
-        native_handle = ctypes.c_void_p(handle.value)
-        native_state = ctypes.c_uint32(1 if state else 0)
-        status = self.bindings.libmpsse_dll.SPI_ToggleCS(native_handle, native_state)
+        status = self.bindings.libmpsse_dll.SPI_ToggleCS(handle, state)
         return status
     
-    """
-    Pythonic wrapper methods for SPI functions.
-    Suggest to use these methods for a more Pythonic interface to the SPI functions.
-    These methods handle the necessary pointer and memory management, and return Python-native types.
-    """
+    def FT_WriteGPIO(self, handle, dir, value) -> ctypes.c_uint32:
+        """
+        Write to the GPIO pins of a specific SPI channel.
+        param handle: Handle to the channel to write to.
+        param dir: Direction of the GPIO pins (1 for output, 0 for input).
+        param value: Value to write to the GPIO pins.
+        return: FT_STATUS indicating success or failure.
+        """
+        status = self.bindings.libmpsse_dll.FT_WriteGPIO(handle, dir, value)
+        return status
+    
+    def FT_ReadGPIO(self, handle, value) -> ctypes.c_uint32:
+        """
+        Read the value of the GPIO pins of a specific SPI channel.
+        param handle: Handle to the channel to read from.
+        return: Value of the GPIO pins. Raises RuntimeError on failure.
+        """
+        status = self.bindings.libmpsse_dll.FT_ReadGPIO(handle, value)
+        return status
+
+    # ==================================================================
+    # Pythonic helpers (recommended): built on top of the low-level
+    # bindings above. They handle pointer/buffer marshalling, accept and
+    # return native Python types, and raise RuntimeError on failure
+    # instead of returning a status code.
+    # ==================================================================
     def get_num_channels(self) -> int:
         """
         Get the number of available SPI channels.
@@ -305,11 +338,6 @@ class SPIInterface:
         native_size = ctypes.c_uint32(size_to_transfer)
         native_transfer_options = ctypes.c_uint32(transfer_options)
 
-        status = self.SPI_ToggleCS(native_handle, False)
-        
-        if status != FT_STATUS.FT_OK.value:
-            raise RuntimeError(f"Failed to write/read from channel. Status: {status}")
-        
         status = self.SPI_ReadWrite(native_handle,
                                     read_data_buffer,
                                     write_data_buffer,
@@ -319,10 +347,47 @@ class SPIInterface:
         
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to write/read from channel. Status: {status}")        
-
-        status = self.SPI_ToggleCS(native_handle, True)
-
-        if status != FT_STATUS.FT_OK.value:
-            raise RuntimeError(f"Failed to write/read from channel. Status: {status}")
+        
         return bytes(read_data_buffer[:size_transferred.value])
+
+    def is_busy(self, handle: FTHandle) -> bool:
+        """
+        Check if a specific SPI channel is busy.
+        param handle: Handle to the channel to check.
+        return: True if the channel is busy, False otherwise. Raises RuntimeError on failure.
+        """
+        state = ctypes.c_uint32()
+        native_handle = ctypes.c_void_p(handle.value)
+        status = self.SPI_IsBusy(native_handle, ctypes.byref(state))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to check if channel is busy. Status: {status}")
+        return bool(state.value)
+    
+    def change_cs(self, handle: FTHandle, config_options: int) -> None:
+        """
+        Change the chip select configuration for a specific SPI channel.
+        param handle: Handle to the channel to change.
+        param config_options: Options for the chip select configuration.
+        return: None. Raises RuntimeError on failure.
+        """
+        native_handle = ctypes.c_void_p(handle.value)
+        native_config_options = ctypes.c_uint32(config_options)
+        status = self.SPI_ChangeCS(native_handle, native_config_options)
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to change chip select configuration. Status: {status}")
+
+    def toggle_cs(self, handle: FTHandle, state: bool) -> None:
+        """
+        Toggle the chip select state for a specific SPI channel.
+        param handle: Handle to the channel to toggle.
+        param state: Boolean indicating the desired chip select state (True for high, False for low).
+        return: None. Raises RuntimeError on failure.
+        """
+        native_handle = ctypes.c_void_p(handle.value)
+        native_state = ctypes.c_uint32(1 if state else 0)
+        status = self.SPI_ToggleCS(native_handle, native_state)
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to toggle chip select. Status: {status}")
+    
+     
 
