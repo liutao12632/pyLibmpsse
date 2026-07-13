@@ -3,8 +3,24 @@ import ctypes
 from dataclasses import dataclass
 from typing import Optional
 
-from pyLibmpsse.consts import FT_STATUS
+from pyLibmpsse.consts import FT_STATUS, SPI_TRANSFER_OPTIONS
 from pyLibmpsse.libmpsse_bindings import NativeFT_DEVICE_LIST_INFO_NODE, NativeChannelConfig
+
+
+def _reject_bit_mode(transfer_options: int) -> None:
+    """Guard for the byte-oriented helpers, which cannot honor bit-sized transfers.
+
+    Raises ValueError if ``SPI_TRANSFER_OPTIONS_SIZE_IN_BITS`` is set, since the
+    high-level ``read`` / ``write`` / ``read_write`` helpers size their buffers in
+    whole bytes. Use the low-level ``SPI_Read`` / ``SPI_Write`` / ``SPI_ReadWrite``
+    for bit-granular transfers.
+    """
+    if transfer_options & SPI_TRANSFER_OPTIONS.SPI_TRANSFER_OPTIONS_SIZE_IN_BITS:
+        raise ValueError(
+            "Byte-oriented helper does not support SPI_TRANSFER_OPTIONS_SIZE_IN_BITS; "
+            "use the low-level SPI_Read / SPI_Write / SPI_ReadWrite for bit transfers."
+        )
+
 
 @dataclass(frozen=True)
 class SPIChannelConfig:
@@ -54,7 +70,7 @@ class SPIInterface:
     # raw FT_STATUS code. Prefer the Pythonic helpers below unless you need
     # direct access to the C API.
     # ==================================================================
-    def SPI_GetNumChannels(self, numChannels) -> ctypes.c_uint32:
+    def SPI_GetNumChannels(self, numChannels) -> int:
         """
         Get the number of available SPI channels.
         param numChannels: Pointer to a DWORD that will receive the number of channels.
@@ -63,7 +79,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_GetNumChannels(numChannels)
         return status
 
-    def SPI_GetChannelInfo(self, index, chanInfo) -> ctypes.c_uint32:
+    def SPI_GetChannelInfo(self, index, chanInfo) -> int:
         """
         Get information about a specific SPI channel.
         param index: Index of the channel to query.
@@ -73,7 +89,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_GetChannelInfo(index, chanInfo)
         return status
     
-    def SPI_OpenChannel(self, index, handle) -> ctypes.c_uint32:
+    def SPI_OpenChannel(self, index, handle) -> int:
         """
         Open a specific SPI channel.
         param index: Index of the channel to open.
@@ -83,7 +99,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_OpenChannel(index, handle)
         return status
     
-    def SPI_InitChannel(self, handle, config) -> ctypes.c_uint32:
+    def SPI_InitChannel(self, handle, config) -> int:
         """
         Initialize a specific SPI channel.
         param handle: Handle to the channel to initialize.
@@ -93,7 +109,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_InitChannel(handle, config)
         return status
 
-    def SPI_CloseChannel(self, handle) -> ctypes.c_uint32:
+    def SPI_CloseChannel(self, handle) -> int:
         """ 
         Close a specific SPI channel.
         param handle: Handle to the channel to close.
@@ -102,7 +118,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_CloseChannel(handle)
         return status
     
-    def SPI_Read(self, handle, buffer, sizeToTransfer, sizeTransferred, transferOptions) -> ctypes.c_uint32:
+    def SPI_Read(self, handle, buffer, sizeToTransfer, sizeTransferred, transferOptions) -> int:
         """
         Read data from a specific SPI channel.
         param handle: Handle to the channel to read from.
@@ -115,7 +131,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_Read(handle, buffer, sizeToTransfer, sizeTransferred, transferOptions)
         return status
     
-    def SPI_Write(self, handle, buffer, sizeToTransfer, sizeTransferred, transferOptions) -> ctypes.c_uint32:
+    def SPI_Write(self, handle, buffer, sizeToTransfer, sizeTransferred, transferOptions) -> int:
         """
         Write data to a specific SPI channel.
         param handle: Handle to the channel to write to.
@@ -128,7 +144,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_Write(handle, buffer, sizeToTransfer, sizeTransferred, transferOptions)
         return status
     
-    def SPI_ReadWrite(self, handle, inBuffer, outBuffer, sizeToTransfer, sizeTransferred, transferOptions) -> ctypes.c_uint32:
+    def SPI_ReadWrite(self, handle, inBuffer, outBuffer, sizeToTransfer, sizeTransferred, transferOptions) -> int:
         """
         Read and write data to/from a specific SPI channel.
         param handle: Handle to the channel to read from and write to.
@@ -142,17 +158,17 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_ReadWrite(handle, inBuffer, outBuffer, sizeToTransfer, sizeTransferred, transferOptions)
         return status
     
-    def SPI_IsBusy(self, handle, state) -> ctypes.c_uint32:
+    def SPI_IsBusy(self, handle, state) -> int:
         """
-        Check if a specific SPI channel is busy.
+        Read the logic state of the SPI MISO line without clocking the bus.
         param handle: Handle to the channel to check.
-        param state: Pointer to a boolean that will receive the busy state (True if busy, False if not).
+        param state: Pointer to a DWORD that will receive the MISO line state (non-zero = high).
         return: FT_STATUS indicating success or failure.
-        """ 
+        """
         status = self.bindings.libmpsse_dll.SPI_IsBusy(handle, state)
         return status
 
-    def SPI_ChangeCS(self, handle, configOptions) -> ctypes.c_uint32:
+    def SPI_ChangeCS(self, handle, configOptions) -> int:
         """
         Change the chip select configuration for a specific SPI channel.
         param handle: Handle to the channel to change.
@@ -162,17 +178,18 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.SPI_ChangeCS(handle, configOptions)
         return status
     
-    def SPI_ToggleCS(self, handle, state) -> ctypes.c_uint32:
+    def SPI_ToggleCS(self, handle, state) -> int:
         """
-        Toggle the chip select state for a specific SPI channel.
+        Toggle the chip select line for a specific SPI channel.
         param handle: Handle to the channel to toggle.
-        param state: Boolean indicating the desired chip select state (True for high, False for low).
+        param state: True to assert (select) the CS line, False to de-assert (deselect) it.
+                     The electrical level depends on the CS active-high/low configuration.
         return: FT_STATUS indicating success or failure.
         """
         status = self.bindings.libmpsse_dll.SPI_ToggleCS(handle, state)
         return status
     
-    def FT_WriteGPIO(self, handle, dir, value) -> ctypes.c_uint32:
+    def FT_WriteGPIO(self, handle, dir, value) -> int:
         """
         Write to the GPIO pins of a specific SPI channel.
         param handle: Handle to the channel to write to.
@@ -183,7 +200,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.FT_WriteGPIO(handle, dir, value)
         return status
     
-    def FT_ReadGPIO(self, handle, value) -> ctypes.c_uint32:
+    def FT_ReadGPIO(self, handle, value) -> int:
         """
         Read the value of the GPIO pins of a specific SPI channel.
         param handle: Handle to the channel to read from.
@@ -192,7 +209,7 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.FT_ReadGPIO(handle, value)
         return status
 
-    def Ver_libMPSSE(self, libmpsse, libftd2xx) -> ctypes.c_uint32:
+    def Ver_libMPSSE(self, libmpsse, libftd2xx) -> int:
         """
         Get the version numbers of the libMPSSE and libFTD2XX libraries.
         param libmpsse: Pointer to a DWORD that will receive the libMPSSE version.
@@ -290,6 +307,7 @@ class SPIInterface:
         param transfer_options: Options for the SPI transfer.
         return: Bytes object containing the read data. Raises RuntimeError on failure.
         """
+        _reject_bit_mode(transfer_options)
         read_data_buffer = (ctypes.c_ubyte * size)()    #Initial value is set to default 0.#
         size_transferred = ctypes.c_uint32()
         native_handle = ctypes.c_void_p(handle.value)
@@ -314,6 +332,7 @@ class SPIInterface:
         param transfer_options: Options for the SPI transfer.
         return: Number of bytes actually written. Raises RuntimeError on failure.
         """
+        _reject_bit_mode(transfer_options)
         size_to_transfer = len(data)
         write_data_buffer = (ctypes.c_ubyte * size_to_transfer).from_buffer_copy(data)
         size_transferred = ctypes.c_uint32()
@@ -336,10 +355,10 @@ class SPIInterface:
         Write data to a specific SPI channel and read data back in a single operation.
         param handle: Handle to the channel to write to and read from.
         param write_data: Bytes object containing the data to write.
-        param read_size: Number of bytes to read back.
-        param transfer_options: Options for the SPI transfer.
+        param transfer_options: Options for the SPI transfer (byte-mode only).
         return: Bytes object containing the read data. Raises RuntimeError on failure.
         """
+        _reject_bit_mode(transfer_options)
         size_to_transfer = len(write_data)
         write_data_buffer = (ctypes.c_ubyte * size_to_transfer).from_buffer_copy(write_data)
         read_data_buffer = (ctypes.c_ubyte * size_to_transfer)()
@@ -362,9 +381,10 @@ class SPIInterface:
 
     def is_busy(self, handle: FTHandle) -> bool:
         """
-        Check if a specific SPI channel is busy.
+        Read the SPI MISO line state without clocking the bus.
         param handle: Handle to the channel to check.
-        return: This function reads the state of the MISO line without clocking the SPI bus. Raises RuntimeError on failure.
+        return: True if the MISO line is high, False if low. Whether "high" means
+                the slave is busy is device-specific. Raises RuntimeError on failure.
         """
         state = ctypes.c_uint32()
         native_handle = ctypes.c_void_p(handle.value)
@@ -388,9 +408,10 @@ class SPIInterface:
 
     def toggle_cs(self, handle: FTHandle, state: bool) -> None:
         """
-        Toggle the chip select state for a specific SPI channel.
+        Assert or de-assert the chip select line for a specific SPI channel.
         param handle: Handle to the channel to toggle.
-        param state: Boolean indicating the desired chip select state (True for high, False for low).
+        param state: True to assert (select) the CS line, False to de-assert (deselect) it.
+                     The electrical level depends on the CS active-high/low configuration.
         return: None. Raises RuntimeError on failure.
         """
         native_handle = ctypes.c_void_p(handle.value)
