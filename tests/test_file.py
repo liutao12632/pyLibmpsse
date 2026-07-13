@@ -1,6 +1,5 @@
 import os
 
-from pyLibmpsse.consts import SPI_TRANSFER_OPTIONS
 from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
 from pyLibmpsse.spi import SPIChannelConfig, SPIInterface
 
@@ -36,65 +35,75 @@ def test_bindings_loads_dlls(bindings: LibMPSSELoader):
 
 @pytest.mark.integration
 def test_spi_get_channels_and_info(bindings: LibMPSSELoader):
+    """Querying the channel count and each channel's info must not raise."""
     spi = SPIInterface(bindings)
+
     num = spi.get_num_channels()
-    print(f"Number of SPI channels: {num}")
+    assert isinstance(num, int) and num >= 0, "Channel count must be a non-negative int."
 
     for index in range(num):
-        channel_info = spi.get_channel_info(index)
-        print(f"Channel {index}: {channel_info}")
-    
+        info = spi.get_channel_info(index)
+        # Fields are decoded from the native struct; check their basic shape.
+        assert isinstance(info.serial_number, str)
+        assert isinstance(info.description, str)
+
+
 @pytest.mark.integration
 def test_spi_open_and_init_channel(bindings: LibMPSSELoader):
-    
+    """Open, initialize and close a channel must not raise.
+
+    The SPI helpers return ``None`` on success and raise ``RuntimeError`` on
+    failure, so simply calling them without an exception being raised is the
+    assertion: pytest fails the test automatically if any call raises.
+    """
     channel_config = SPIChannelConfig(
         clock_rate=20000000,  # 20 MHz
         latency_timer=1,      # 1 ms
         config_options=0,
-        pin=0x8B8B8B8B     
+        pin=0x8B8B8B8B,
     )
     spi = SPIInterface(bindings)
-    num = spi.get_num_channels()
-    if num == 0:
+    if spi.get_num_channels() == 0:
         pytest.skip("No SPI channels available to test.")
 
     handle = spi.open_channel(0)
-    assert handle is not None, "Failed to open SPI channel."
+    assert handle.value, "open_channel should return a non-null handle."
 
-    status = spi.init_channel(handle, channel_config)
-    assert status is None, "Failed to initialize SPI channel."
-
-    status = spi.close_channel(handle)
-    assert status is None, "Failed to close SPI channel."
+    try:
+        # Raises RuntimeError on failure; reaching the next line means success.
+        spi.init_channel(handle, channel_config)
+    finally:
+        # Always release the channel, even if init_channel raised above.
+        spi.close_channel(handle)
 
 @pytest.mark.integration
-def test_spi_read(bindings: LibMPSSELoader):
+def test_spi_read_write(bindings: LibMPSSELoader):
+    """A full-duplex read_write transfer must not raise and must clock in one
+    byte for every byte clocked out."""
     channel_config = SPIChannelConfig(
         clock_rate=4000000,   # 4 MHz
         latency_timer=1,      # 1 ms
         config_options=0,
-        pin=0x8B8B8B8B
+        pin=0x8B8B8B8B,       #Indigo4 chip settings for CS, SK, DO, DI pins
     )
     spi = SPIInterface(bindings)
-    num = spi.get_num_channels()
-    if num == 0:
+    if spi.get_num_channels() == 0:
         pytest.skip("No SPI channels available to test.")
 
     handle = spi.open_channel(0)
-    assert handle is not None, "Failed to open SPI channel."
+    assert handle.value, "open_channel should return a non-null handle."
 
-    status = spi.init_channel(handle, channel_config)
-    assert status is None, "Failed to initialize SPI channel."
+    try:
+        spi.init_channel(handle, channel_config)
 
-    # Prepare data for read/write test
-    write_data = bytes([0xA4, 0x04, 0x30, 0x10, 0x60, 0x04, 0x00, 0x0, 0x0, 0x0, 0x0]) #02 04 30 10 60 04 00#
+        spi.toggle_cs(handle, False)  # pull down CS
 
-    read_data = spi.read_write(handle,
-                                write_data,
-                                transfer_options=0x0)
+        write_data = bytes([0xA4, 0x04, 0x30, 0x10, 0x60, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00])
+        read_data = spi.read_write(handle, write_data, transfer_options=0x0)
 
-    print(f"Read data: {read_data}")
-
-    status = spi.close_channel(handle)
-    assert status is None, "Failed to close SPI channel."
+        # SPI is full-duplex: exactly one byte is read for each byte written.
+        assert len(read_data) == len(write_data)
+    finally:
+        spi.toggle_cs(handle, True)  # release CS
+        spi.close_channel(handle)
 

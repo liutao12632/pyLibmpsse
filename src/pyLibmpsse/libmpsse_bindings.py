@@ -160,6 +160,9 @@ class LibMPSSELoader:
         self.libmpsse_dll.Cleanup_libMPSSE.argtypes = []
         self.libmpsse_dll.Cleanup_libMPSSE.restype = None
 
+        # function prototype: FT_STATUS Ver_libMPSSE(LPDWORD libmpsse, LPDWORD libftd2xx);#
+        self.libmpsse_dll.Ver_libMPSSE.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32)]
+        self.libmpsse_dll.Ver_libMPSSE.restype = ctypes.c_uint32
 
     def _load_dlls(self,
                   libmpsse_path: Optional[str] = None,

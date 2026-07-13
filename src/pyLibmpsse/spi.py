@@ -192,6 +192,16 @@ class SPIInterface:
         status = self.bindings.libmpsse_dll.FT_ReadGPIO(handle, value)
         return status
 
+    def Ver_libMPSSE(self, libmpsse, libftd2xx) -> ctypes.c_uint32:
+        """
+        Get the version numbers of the libMPSSE and libFTD2XX libraries.
+        param libmpsse: Pointer to a DWORD that will receive the libMPSSE version.
+        param libftd2xx: Pointer to a DWORD that will receive the libFTD2XX version.
+        return: FT_STATUS indicating success or failure.
+        """
+        status = self.bindings.libmpsse_dll.Ver_libMPSSE(libmpsse, libftd2xx)
+        return status
+
     # ==================================================================
     # Pythonic helpers (recommended): built on top of the low-level
     # bindings above. They handle pointer/buffer marshalling, accept and
@@ -354,7 +364,7 @@ class SPIInterface:
         """
         Check if a specific SPI channel is busy.
         param handle: Handle to the channel to check.
-        return: True if the channel is busy, False otherwise. Raises RuntimeError on failure.
+        return: This function reads the state of the MISO line without clocking the SPI bus. Raises RuntimeError on failure.
         """
         state = ctypes.c_uint32()
         native_handle = ctypes.c_void_p(handle.value)
@@ -388,6 +398,18 @@ class SPIInterface:
         status = self.SPI_ToggleCS(native_handle, native_state)
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to toggle chip select. Status: {status}")
-    
-     
 
+    def get_version(self) -> tuple[int, int]:
+        """
+        Get the version numbers of the libMPSSE and libFTD2XX libraries.
+        return: A tuple ``(libmpsse_version, libftd2xx_version)`` of raw version
+                DWORDs (e.g. 0x030109 encodes version 3.1.9). Raises RuntimeError
+                on failure.
+        """
+        libmpsse_version = ctypes.c_uint32()
+        libftd2xx_version = ctypes.c_uint32()
+        status = self.Ver_libMPSSE(ctypes.byref(libmpsse_version),
+                                   ctypes.byref(libftd2xx_version))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to get library version. Status: {status}")
+        return (libmpsse_version.value, libftd2xx_version.value)
