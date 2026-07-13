@@ -399,6 +399,36 @@ class SPIInterface:
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to toggle chip select. Status: {status}")
 
+    def write_gpio(self, handle: FTHandle, direction: int, value: int) -> None:
+        """
+        Write to the 8 GPIO lines on the high byte (ACBUS/BCBUS) of the MPSSE channel.
+        param handle: Handle to the channel.
+        param direction: Direction bitmask for the 8 lines (bit = 1 output, bit = 0 input).
+        param value: Output level for each line (only bits configured as output take effect).
+        return: None. Raises RuntimeError on failure.
+        """
+        native_handle = ctypes.c_void_p(handle.value)
+        native_direction = ctypes.c_uint8(direction & 0xFF)
+        native_value = ctypes.c_uint8(value & 0xFF)
+        status = self.FT_WriteGPIO(native_handle, native_direction, native_value)
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to write GPIO. Status: {status}")
+
+    def read_gpio(self, handle: FTHandle) -> int:
+        """
+        Read the 8 GPIO lines on the high byte (ACBUS/BCBUS) of the MPSSE channel.
+        param handle: Handle to the channel.
+        return: 8-bit integer with the input state of the GPIO lines (bit = 1 high).
+                Raises RuntimeError on failure.
+        note: The line directions must first be set to input via write_gpio().
+        """
+        value = ctypes.c_uint8()
+        native_handle = ctypes.c_void_p(handle.value)
+        status = self.FT_ReadGPIO(native_handle, ctypes.byref(value))
+        if status != FT_STATUS.FT_OK.value:
+            raise RuntimeError(f"Failed to read GPIO. Status: {status}")
+        return value.value
+
     def get_version(self) -> tuple[int, int]:
         """
         Get the version numbers of the libMPSSE and libFTD2XX libraries.
