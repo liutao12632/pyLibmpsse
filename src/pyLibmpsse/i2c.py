@@ -60,7 +60,7 @@ class I2CInterface:
     def I2C_GetChannelInfo(self, index, chanInfo) -> int:
         """
         Get information about a specific I2C channel.
-        param index: Index of the channel to query (see get_channel_info for the 1-based note).
+        param index: Index of the channel to query (see get_channel_info for the 0-based note).
         param chanInfo: Pointer to an FT_DEVICE_LIST_INFO_NODE structure that will receive the info.
         return: FT_STATUS indicating success or failure.
         """
@@ -209,7 +209,7 @@ class I2CInterface:
     def open_channel(self, index: int) -> FTHandle:
         """
         Open a specific I2C channel.
-        param index: 1-based channel index (per libMPSSE_i2c.h).
+        param index: 0-based channel index (0 to get_num_channels() - 1), per libMPSSE_i2c.h.
         return: FTHandle representing the opened channel. Raises RuntimeError on failure.
         """
         handle = ctypes.c_void_p()

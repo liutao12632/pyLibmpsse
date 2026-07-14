@@ -224,10 +224,10 @@ class SPIInterface:
             raise RuntimeError(f"Failed to get number of channels. Status: {status}")
         return num_channels.value
     
-    def get_channel_info(self, index) -> ChannelInfo:
+    def get_channel_info(self, index: int) -> ChannelInfo:
         """
         Get information about a specific SPI channel.
-        param index: Index of the channel to retrieve information for.
+        param index: 0-based channel index (0 to get_num_channels() - 1).
         return: ChannelInfo object containing the channel information.
         """
         chan_info = NativeFT_DEVICE_LIST_INFO_NODE()
@@ -245,10 +245,10 @@ class SPIInterface:
         )
         return info_wrapper
 
-    def open_channel(self, index) -> FTHandle:
+    def open_channel(self, index: int) -> FTHandle:
         """
         Open a specific SPI channel.
-        param index: Index of the channel to open.
+        param index: 0-based channel index (0 to get_num_channels() - 1).
         return: FTHandle object representing the opened channel.
         """
         handle = ctypes.c_void_p()
