@@ -1,6 +1,8 @@
 
 import ctypes
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Iterator
 
 from pyLibmpsse.consts import FT_STATUS
 from pyLibmpsse.common import FTHandle, ChannelInfo
@@ -244,6 +246,36 @@ class I2CInterface:
         status = self.I2C_CloseChannel(ctypes.c_void_p(handle.value))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to close channel. Status: {status}")
+
+    @contextmanager
+    def open_initialized(self, index: int, config: I2CChannelConfig) -> Iterator[FTHandle]:
+        """
+        Open and initialize an I2C channel as a context manager (recommended).
+
+        Opens the channel at ``index``, initializes it with ``config``, and yields
+        the resulting handle. The channel is always closed when leaving the
+        ``with`` block, even if an exception is raised inside it, so the handle
+        can never leak.
+
+        This is a convenience wrapper over ``open_channel`` / ``init_channel`` /
+        ``close_channel``; those methods remain fully usable for manual lifecycle
+        management when a single ``with`` block is not a good fit.
+
+        param index: 1-based channel index (per libMPSSE_i2c.h).
+        param config: Configuration applied via init_channel.
+        return: Context manager yielding the opened, initialized FTHandle.
+                Raises RuntimeError if opening or initialization fails.
+
+        Example:
+            with i2c.open_initialized(1, config) as handle:
+                i2c.write(handle, addr, data, options)
+        """
+        handle = self.open_channel(index)
+        try:
+            self.init_channel(handle, config)
+            yield handle
+        finally:
+            self.close_channel(handle)
 
     def read(self, handle: FTHandle, device_address: int, size: int, options: int) -> bytes:
         """

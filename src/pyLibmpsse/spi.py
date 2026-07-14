@@ -1,6 +1,8 @@
 
 import ctypes
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Iterator
 
 from pyLibmpsse.consts import FT_STATUS, SPI_TRANSFER_OPTIONS
 from pyLibmpsse.common import FTHandle, ChannelInfo
@@ -237,8 +239,8 @@ class SPIInterface:
             type=chan_info.Type,
             id=chan_info.ID,
             loc_id=chan_info.LocId,
-            serial_number=chan_info.SerialNumber.decode('utf-8').rstrip('\x00'),
-            description=chan_info.Description.decode('utf-8').rstrip('\x00'),
+            serial_number=chan_info.SerialNumber.decode('utf-8', errors='replace').rstrip('\x00'),
+            description=chan_info.Description.decode('utf-8', errors='replace').rstrip('\x00'),
             ft_handle=FTHandle(chan_info.ftHandle) if chan_info.ftHandle else None
         )
         return info_wrapper
@@ -285,6 +287,36 @@ class SPIInterface:
         status = self.SPI_CloseChannel(ctypes.c_void_p(handle.value))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to close channel. Status: {status}")
+
+    @contextmanager
+    def open_initialized(self, index: int, config: SPIChannelConfig) -> Iterator[FTHandle]:
+        """
+        Open and initialize an SPI channel as a context manager (recommended).
+
+        Opens the channel at ``index``, initializes it with ``config``, and yields
+        the resulting handle. The channel is always closed when leaving the
+        ``with`` block, even if an exception is raised inside it, so the handle
+        can never leak.
+
+        This is a convenience wrapper over ``open_channel`` / ``init_channel`` /
+        ``close_channel``; those methods remain fully usable for manual lifecycle
+        management when a single ``with`` block is not a good fit.
+
+        param index: Index of the channel to open.
+        param config: Configuration applied via init_channel.
+        return: Context manager yielding the opened, initialized FTHandle.
+                Raises RuntimeError if opening or initialization fails.
+
+        Example:
+            with spi.open_initialized(0, config) as handle:
+                spi.read_write(handle, data)
+        """
+        handle = self.open_channel(index)
+        try:
+            self.init_channel(handle, config)
+            yield handle
+        finally:
+            self.close_channel(handle)
 
     def read(self, handle: FTHandle, size: int, transfer_options: int = 0) -> bytes:
         """

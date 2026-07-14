@@ -180,3 +180,21 @@ def test_error_status_raises_runtimeerror(i2c, dll, handle):
     dll.status = FT_STATUS.FT_IO_ERROR.value
     with pytest.raises(RuntimeError):
         i2c.write(handle, 0x50, b"\x01", options=START | STOP)
+
+
+def test_open_initialized_opens_inits_and_closes(i2c, dll):
+    cfg = I2CChannelConfig(clock_rate=400000, latency_timer=2, options=0, pin=0)
+    with i2c.open_initialized(1, cfg) as h:
+        assert isinstance(h, FTHandle)
+        assert h.value == 0xABCD
+    names = [name for name, _ in dll.calls]
+    assert names == ["I2C_OpenChannel", "I2C_InitChannel", "I2C_CloseChannel"]
+
+
+def test_open_initialized_closes_on_exception(i2c, dll):
+    cfg = I2CChannelConfig(clock_rate=400000, latency_timer=2, options=0, pin=0)
+    with pytest.raises(ValueError):
+        with i2c.open_initialized(1, cfg):
+            raise ValueError("boom")
+    # The channel must still be released even though the body raised.
+    assert [name for name, _ in dll.calls][-1] == "I2C_CloseChannel"

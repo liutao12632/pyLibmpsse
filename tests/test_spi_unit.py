@@ -211,3 +211,21 @@ def test_error_status_raises_runtimeerror(spi, dll, handle):
     dll.status = FT_STATUS.FT_IO_ERROR.value
     with pytest.raises(RuntimeError):
         spi.write(handle, b"\x01")
+
+
+def test_open_initialized_opens_inits_and_closes(spi, dll):
+    cfg = SPIChannelConfig(clock_rate=1_000_000, latency_timer=1, config_options=0, pin=0)
+    with spi.open_initialized(0, cfg) as h:
+        assert isinstance(h, FTHandle)
+        assert h.value == 0xABCD
+    names = [name for name, _ in dll.calls]
+    assert names == ["SPI_OpenChannel", "SPI_InitChannel", "SPI_CloseChannel"]
+
+
+def test_open_initialized_closes_on_exception(spi, dll):
+    cfg = SPIChannelConfig(clock_rate=1_000_000, latency_timer=1, config_options=0, pin=0)
+    with pytest.raises(ValueError):
+        with spi.open_initialized(0, cfg):
+            raise ValueError("boom")
+    # The channel must still be released even though the body raised.
+    assert [name for name, _ in dll.calls][-1] == "SPI_CloseChannel"
