@@ -134,8 +134,8 @@ class SPIInterface:
         """
         Read and write data to/from a specific SPI channel.
         param handle: Handle to the channel to read from and write to.
-        param inBuffer: Pointer to a buffer that contains the data to write.
-        param outBuffer: Pointer to a buffer that will receive the read data.
+        param inBuffer: Pointer to a buffer that will receive the read (clocked-in) data.
+        param outBuffer: Pointer to a buffer that contains the data to write (clocked out).
         param sizeToTransfer: Number of bytes to transfer.
         param sizeTransferred: Pointer to a variable that will receive the number of bytes actually transferred.
         param transferOptions: Options for the transfer.
@@ -190,7 +190,8 @@ class SPIInterface:
         """
         Read the value of the GPIO pins of a specific SPI channel.
         param handle: Handle to the channel to read from.
-        return: Value of the GPIO pins. Raises RuntimeError on failure.
+        param value: Pointer to a UCHAR that will receive the GPIO state.
+        return: FT_STATUS indicating success or failure.
         """
         status = self.bindings.libmpsse_dll.FT_ReadGPIO(handle, value)
         return status

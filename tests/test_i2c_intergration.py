@@ -86,17 +86,19 @@ def test_i2c_read_write(bindings: LibMPSSELoader):
     )
     i2c_slave_addr = 0x32  # Example I2C slave address; change as needed
     handle = i2c.open_channel(1)
-    i2c.init_channel(handle, channel_config)
+    try:
+        i2c.init_channel(handle, channel_config)
 
-    time.sleep(0.1)  # Allow some time for the device to be ready
-    # Example write operation (adjust address and data as needed)
-    write_data = bytes([0x02, 0x00, 0x20, 0x7C, 0x61])
-    bytes_written = i2c.write(handle, i2c_slave_addr, write_data, 0x13)
-    assert bytes_written == len(write_data), "Not all bytes were written."
+        time.sleep(0.1)  # Allow some time for the device to be ready
+        # Example write operation (adjust address and data as needed)
+        write_data = bytes([0x02, 0x00, 0x20, 0x7C, 0x61])
+        bytes_written = i2c.write(handle, i2c_slave_addr, write_data, 0x13)
+        assert bytes_written == len(write_data), "Not all bytes were written."
 
-    # Example read operation (adjust address and length as needed)
-    read_length = 4
-    read_data = i2c.read(handle, i2c_slave_addr, read_length, 0x13)
-    assert len(read_data) == read_length, "Did not read the expected number of bytes."
-
-    i2c.close_channel(handle)
+        # Example read operation (adjust address and length as needed)
+        read_length = 4
+        read_data = i2c.read(handle, i2c_slave_addr, read_length, 0x13)
+        assert len(read_data) == read_length, "Did not read the expected number of bytes."
+    finally:
+        # Always release the channel, even if a transfer above raised.
+        i2c.close_channel(handle)

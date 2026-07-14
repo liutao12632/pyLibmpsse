@@ -123,6 +123,14 @@ class LibMPSSELoader:
         self.libmpsse_dll.FT_ReadGPIO.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8)]
         self.libmpsse_dll.FT_ReadGPIO.restype = ctypes.c_uint32
 
+        # NOTE: On Windows, Init_libMPSSE() and Cleanup_libMPSSE() are invoked
+        # automatically by the library's DllMain when libmpsse.dll is loaded and
+        # unloaded, so this wrapper intentionally never calls them; they are bound
+        # only for completeness / advanced use. Do NOT call Init_libMPSSE() again
+        # while channels are open -- it re-initializes libMPSSE's internal channel
+        # list and would invalidate existing handles. This auto-init behavior is
+        # Windows-only; a non-Windows port would have to call Init_libMPSSE() once
+        # explicitly after loading the library.
         # function prototype: void Init_libMPSSE(void)
         self.libmpsse_dll.Init_libMPSSE.argtypes = []
         self.libmpsse_dll.Init_libMPSSE.restype = None
