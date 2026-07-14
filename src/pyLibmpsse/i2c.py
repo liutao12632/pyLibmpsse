@@ -201,8 +201,8 @@ class I2CInterface:
             type=chan_info.Type,
             id=chan_info.ID,
             loc_id=chan_info.LocId,
-            serial_number=chan_info.SerialNumber.decode('utf-8').rstrip('\x00'),
-            description=chan_info.Description.decode('utf-8').rstrip('\x00'),
+            serial_number=chan_info.SerialNumber.decode('utf-8', errors='replace').rstrip('\x00'),
+            description=chan_info.Description.decode('utf-8', errors='replace').rstrip('\x00'),
             ft_handle=FTHandle(chan_info.ftHandle) if chan_info.ftHandle else None,
         )
 
