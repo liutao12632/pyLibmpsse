@@ -1,9 +1,9 @@
 
 import ctypes
 from dataclasses import dataclass
-from typing import Optional
 
 from pyLibmpsse.consts import FT_STATUS, SPI_TRANSFER_OPTIONS
+from pyLibmpsse.common import FTHandle, ChannelInfo
 from pyLibmpsse.libmpsse_bindings import NativeFT_DEVICE_LIST_INFO_NODE, NativeChannelConfig
 
 
@@ -29,20 +29,6 @@ class SPIChannelConfig:
     config_options: int
     pin: int
     reserved: int = 0  # Reserved field for alignment, default to 0
-
-@dataclass(frozen=True)
-class FTHandle:
-    value: int
-
-@dataclass(frozen=True)
-class SPIChannelInfo:
-    flags: int
-    type: int
-    id: int
-    loc_id: int
-    serial_number: str
-    description: str
-    ft_handle: Optional[FTHandle]
 
 class SPIInterface:
     """SPI access for libMPSSE, exposed as two tiers of methods.
@@ -235,17 +221,17 @@ class SPIInterface:
             raise RuntimeError(f"Failed to get number of channels. Status: {status}")
         return num_channels.value
     
-    def get_channel_info(self, index) -> SPIChannelInfo:
+    def get_channel_info(self, index) -> ChannelInfo:
         """
         Get information about a specific SPI channel.
         param index: Index of the channel to retrieve information for.
-        return: SPIChannelInfo object containing the channel information.
+        return: ChannelInfo object containing the channel information.
         """
         chan_info = NativeFT_DEVICE_LIST_INFO_NODE()
         status = self.SPI_GetChannelInfo(index, ctypes.byref(chan_info))
         if status != FT_STATUS.FT_OK.value:
             raise RuntimeError(f"Failed to get channel info. Status: {status}")
-        info_wrapper = SPIChannelInfo(
+        info_wrapper = ChannelInfo(
             flags=chan_info.Flags,
             type=chan_info.Type,
             id=chan_info.ID,

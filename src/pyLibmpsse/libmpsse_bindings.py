@@ -36,6 +36,26 @@ class NativeChannelConfig (ctypes.Structure):
         ("Reserved", ctypes.c_uint16)  # Reserved field for alignment
     ]
 
+class NativeI2CChannelConfig(ctypes.Structure):
+    """C structure definition for the I2C ChannelConfig.
+
+    C definition (libMPSSE_i2c.h):
+        typedef struct {
+            I2C_CLOCKRATE ClockRate;   // uint32 enum
+            UCHAR         LatencyTimer;
+            DWORD         Options;
+            DWORD         Pin;
+            USHORT        currentPinState;
+        } ChannelConfig;
+    """
+    _fields_ = [
+        ("ClockRate", ctypes.c_uint32),
+        ("LatencyTimer", ctypes.c_uint8),
+        ("Options", ctypes.c_uint32),
+        ("Pin", ctypes.c_uint32),
+        ("currentPinState", ctypes.c_uint16),
+    ]
+
 class NativeFT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
     """
     C structure definition for FT_DEVICE_LIST_INFO_NODE.
@@ -88,7 +108,32 @@ class LibMPSSELoader:
         self.load_mpsse_path = libmpsse_path
 
         self._load_dlls(libmpsse_path, ftd2xx_path)
+        self._bind_common_functions()
         self._bind_SPI_functions()
+        self._bind_I2C_functions()
+
+    def _bind_common_functions(self):
+        # Bind functions shared by all protocols (GPIO, library lifecycle, version).
+
+        # function prototype: FT_STATUS FT_WriteGPIO(FT_HANDLE handle, UCHAR dir, UCHAR value)
+        self.libmpsse_dll.FT_WriteGPIO.argtypes = [ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint8]
+        self.libmpsse_dll.FT_WriteGPIO.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS FT_ReadGPIO(FT_HANDLE handle, UCHAR *value)
+        self.libmpsse_dll.FT_ReadGPIO.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8)]
+        self.libmpsse_dll.FT_ReadGPIO.restype = ctypes.c_uint32
+
+        # function prototype: void Init_libMPSSE(void)
+        self.libmpsse_dll.Init_libMPSSE.argtypes = []
+        self.libmpsse_dll.Init_libMPSSE.restype = None
+
+        # function prototype: void Cleanup_libMPSSE(void);#
+        self.libmpsse_dll.Cleanup_libMPSSE.argtypes = []
+        self.libmpsse_dll.Cleanup_libMPSSE.restype = None
+
+        # function prototype: FT_STATUS Ver_libMPSSE(LPDWORD libmpsse, LPDWORD libftd2xx);#
+        self.libmpsse_dll.Ver_libMPSSE.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32)]
+        self.libmpsse_dll.Ver_libMPSSE.restype = ctypes.c_uint32
 
     def _bind_SPI_functions(self):
         # Bind SPI functions
@@ -144,25 +189,47 @@ class LibMPSSELoader:
         self.libmpsse_dll.SPI_ToggleCS.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         self.libmpsse_dll.SPI_ToggleCS.restype = ctypes.c_uint32
 
-        # function prototype: FT_STATUS FT_WriteGPIO(FT_HANDLE handle, UCHAR dir, UCHAR value)
-        self.libmpsse_dll.FT_WriteGPIO.argtypes = [ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint8]
-        self.libmpsse_dll.FT_WriteGPIO.restype = ctypes.c_uint32
-        
-        # function prototype: FT_STATUS FT_ReadGPIO(FT_HANDLE handle, UCHAR *value)
-        self.libmpsse_dll.FT_ReadGPIO.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint8)]
-        self.libmpsse_dll.FT_ReadGPIO.restype = ctypes.c_uint32
+    def _bind_I2C_functions(self):
+        # Bind I2C functions
 
-        # function prototype: void Init_libMPSSE(void)
-        self.libmpsse_dll.Init_libMPSSE.argtypes = []
-        self.libmpsse_dll.Init_libMPSSE.restype = None
+        # function prototype: FT_STATUS I2C_GetNumChannels(DWORD *numChannels)
+        self.libmpsse_dll.I2C_GetNumChannels.argtypes = [
+            ctypes.POINTER(ctypes.c_uint32)]
+        self.libmpsse_dll.I2C_GetNumChannels.restype = ctypes.c_uint32
 
-        # function prototype: void Cleanup_libMPSSE(void);#
-        self.libmpsse_dll.Cleanup_libMPSSE.argtypes = []
-        self.libmpsse_dll.Cleanup_libMPSSE.restype = None
+        # function prototype: FT_STATUS I2C_GetChannelInfo(DWORD index, FT_DEVICE_LIST_INFO_NODE *chanInfo)
+        self.libmpsse_dll.I2C_GetChannelInfo.argtypes = [
+            ctypes.c_uint32, ctypes.POINTER(NativeFT_DEVICE_LIST_INFO_NODE)]
+        self.libmpsse_dll.I2C_GetChannelInfo.restype = ctypes.c_uint32
 
-        # function prototype: FT_STATUS Ver_libMPSSE(LPDWORD libmpsse, LPDWORD libftd2xx);#
-        self.libmpsse_dll.Ver_libMPSSE.argtypes = [ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32)]
-        self.libmpsse_dll.Ver_libMPSSE.restype = ctypes.c_uint32
+        # function prototype: FT_STATUS I2C_OpenChannel(DWORD index, FT_HANDLE *handle)
+        self.libmpsse_dll.I2C_OpenChannel.argtypes = [
+            ctypes.c_uint32, ctypes.POINTER(ctypes.c_void_p)]
+        self.libmpsse_dll.I2C_OpenChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS I2C_InitChannel(FT_HANDLE handle, ChannelConfig *config)
+        self.libmpsse_dll.I2C_InitChannel.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(NativeI2CChannelConfig)]
+        self.libmpsse_dll.I2C_InitChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS I2C_CloseChannel(FT_HANDLE handle)
+        self.libmpsse_dll.I2C_CloseChannel.argtypes = [ctypes.c_void_p]
+        self.libmpsse_dll.I2C_CloseChannel.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS I2C_DeviceRead(FT_HANDLE handle, UCHAR deviceAddress, DWORD sizeToTransfer, UCHAR *buffer, LPDWORD sizeTransferred, DWORD options)
+        self.libmpsse_dll.I2C_DeviceRead.argtypes = [
+            ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
+        self.libmpsse_dll.I2C_DeviceRead.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS I2C_DeviceWrite(FT_HANDLE handle, UCHAR deviceAddress, DWORD sizeToTransfer, UCHAR *buffer, LPDWORD sizeTransferred, DWORD options)
+        self.libmpsse_dll.I2C_DeviceWrite.argtypes = [
+            ctypes.c_void_p, ctypes.c_uint8, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint32), ctypes.c_uint32]
+        self.libmpsse_dll.I2C_DeviceWrite.restype = ctypes.c_uint32
+
+        # function prototype: FT_STATUS I2C_GetDeviceID(FT_HANDLE handle, UCHAR deviceAddress, UCHAR *deviceID)
+        self.libmpsse_dll.I2C_GetDeviceID.argtypes = [
+            ctypes.c_void_p, ctypes.c_uint8, ctypes.POINTER(ctypes.c_uint8)]
+        self.libmpsse_dll.I2C_GetDeviceID.restype = ctypes.c_uint32
 
     def _load_dlls(self,
                   libmpsse_path: Optional[str] = None,

@@ -191,14 +191,18 @@ class I2C_CLOCK_RATE(IntEnum):
 class I2C_CONFIG_OPTIONS(IntEnum):
     """Bit masks for the ``Options`` field of the I²C ``ChannelConfig``.
 
+    Values follow the ``#define``s in libMPSSE_i2c.h. The ChannelConfig.Options
+    field additionally documents BIT1=Loopback and BIT2=Clock-stretching, but the
+    header only provides named macros for the two constants below.
+
     Notes
     -----
     * 3-phase-clocking is available only on Hi-Speed devices
-      (FT232H, FT2232H, FT4232H), not on FT2232D.
-    * Drive-Only-Zero is available only on the FT232H.
+      (FT232H, FT2232H, FT4232H), not on FT2232D. It is enabled by default;
+      set ``I2C_DISABLE_3PHASE_CLOCKING`` to turn it off.
     """
-    I2C_DISABLE_3PHASE_CLOCKING  = 0x00000001  # BIT0
-    I2C_ENABLE_DRIVE_ONLY_ZERO   = 0x00000002  # BIT1
+    I2C_DISABLE_3PHASE_CLOCKING  = 0x00000001  # BIT0  (#define I2C_DISABLE_3PHASE_CLOCKING 0x0001)
+    I2C_ENABLE_PIN_STATE_CONFIG  = 0x00000010  # #define I2C_ENABLE_PIN_STATE_CONFIG 0x0010
 
 
 # ──  I²C Transfer Options  ───────────────────────────────────────────

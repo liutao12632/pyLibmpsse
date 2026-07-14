@@ -23,7 +23,7 @@ def _require_env(name: str) -> str:
 def bindings() -> LibMPSSELoader:
     ftd2xx_path = _require_env(ENV_FTD2XX_DLL)
     libmpsse_path = _require_env(ENV_LIBMPSSE_DLL)
-    return LibMPSSELoader(ftd2xx_path, libmpsse_path)
+    return LibMPSSELoader(libmpsse_path=libmpsse_path, ftd2xx_path=ftd2xx_path)
 
 
 @pytest.mark.integration
