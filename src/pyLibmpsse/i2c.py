@@ -209,7 +209,7 @@ class I2CInterface:
     def open_channel(self, index: int) -> FTHandle:
         """
         Open a specific I2C channel.
-        param index: 0-based channel index (0 to get_num_channels() - 1), per libMPSSE_i2c.h.
+        param index: 0-based channel index (0 to get_num_channels() - 1).
         return: FTHandle representing the opened channel. Raises RuntimeError on failure.
         """
         handle = ctypes.c_void_p()
@@ -261,13 +261,13 @@ class I2CInterface:
         ``close_channel``; those methods remain fully usable for manual lifecycle
         management when a single ``with`` block is not a good fit.
 
-        param index: 1-based channel index (per libMPSSE_i2c.h).
+        param index: 0-based channel index (0 to get_num_channels() - 1).
         param config: Configuration applied via init_channel.
         return: Context manager yielding the opened, initialized FTHandle.
                 Raises RuntimeError if opening or initialization fails.
 
         Example:
-            with i2c.open_initialized(1, config) as handle:
+            with i2c.open_initialized(0, config) as handle:
                 i2c.write(handle, addr, data, options)
         """
         handle = self.open_channel(index)

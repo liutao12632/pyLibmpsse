@@ -1,7 +1,0 @@
-colorama==0.4.6
-iniconfig==2.3.0
-packaging==26.2
-pluggy==1.6.0
-Pygments==2.20.0
--e git+ssh://git@github.com/liutao12632/pyLibmpsse.git@0a1a1a507d81eeae30bfe78437f7fd34e39f4945#egg=pyLibmpsse
-pytest==9.1.1

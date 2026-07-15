@@ -4,6 +4,7 @@ Now only support windows platform.
 """
 
 import ctypes
+import sys
 from typing import Optional
 from .errors import DLLLoadError, PlatformError
 
@@ -96,6 +97,11 @@ class NativeFT_DEVICE_LIST_INFO_NODE(ctypes.Structure):
 class LibMPSSELoader:
 
     def __init__(self, libmpsse_path=None, ftd2xx_path=None):
+        if not sys.platform.startswith("win"):
+            raise PlatformError(
+                "pyLibmpsse is Windows-only; it requires the FTDI D2XX/libMPSSE "
+                f"DLLs and cannot run on platform '{sys.platform}'."
+            )
         self.ftd2xx_dll = None
         self.libmpsse_dll = None
         

@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyLibmpsse"
-version = "0.1.0"
-description = "Python wrapper for libmpsse — FTDI MPSSE (SPI/I2C/JTAG) operations"
+version = "1.0.0"
+description = "Python wrapper for libmpsse — FTDI MPSSE (SPI/I2C) operations"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
 authors = [
     {name = "Nikolas.Young", email = "nikolas_young@foxmail.com"},
 ]
-keywords = ["ftdi", "mpsse", "spi", "i2c", "jtag"]
+keywords = ["ftdi", "mpsse", "spi", "i2c"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -24,6 +24,9 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/liutao12632/pyLibmpsse"
 Issues   = "https://github.com/liutao12632/pyLibmpsse/issues"
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [tool.pytest.ini_options]
 markers = [

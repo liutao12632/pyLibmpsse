@@ -2,35 +2,139 @@
 
 ## 1. Introduction ##
 
-A sample wrapper for LibMPSSE library.
+pyLibmpsse is a Python wrapper for FTDI's LibMPSSE library. It provides SPI and
+I2C access (plus high-byte GPIO) for FTDI MPSSE-capable devices such as the
+FT232H, FT2232H and FT4232H.
+
+The library exposes two tiers of API:
+
+- **Pythonic helpers (recommended)** — methods such as `read` / `write` /
+  `read_write` / `open_initialized` that accept and return native Python types
+  (`bytes`, `int`) and raise `RuntimeError` on failure.
+- **Low-level bindings** — thin, 1:1 wrappers over the C functions that mirror
+  the original signatures and return the raw `FT_STATUS` code, for advanced or
+  direct use.
+
+> **Windows only.** pyLibmpsse targets the FTDI D2XX stack on Windows and uses
+> `ctypes.WinDLL` / `ctypes.CDLL` to load the native DLLs. Constructing
+> `LibMPSSELoader` on a non-Windows platform raises `PlatformError`. Linux and
+> macOS are not supported.
 
 ## 2. Requirements ##
 
-- Windows platform
+- **Windows only** (see the note above)
 - Python >= 3.9
-- libmpsse.dll
-- Install d2xx driver
+- `libmpsse.dll` and `ftd2xx.dll` — obtained from FTDI; **not** bundled with this package
+- FTDI D2XX driver installed
 
-## 3. Architecture ##
+## 3. Installation ##
+
+pyLibmpsse has **no third-party runtime dependencies** (it uses only the Python
+standard-library `ctypes`). Install it from a source checkout with pip:
+
+```powershell
+# regular install
+pip install .
+
+# or an editable/development install
+pip install -e .
+```
+
+The native `libmpsse.dll` and `ftd2xx.dll` are not shipped with the package.
+Download them from FTDI, install the D2XX driver, and pass the DLL paths to
+`LibMPSSELoader` (see the Quick start below).
+
+To run the test suite you also need pytest:
+
+```powershell
+pip install pytest
+```
+
+## 4. Quick start ##
+
+### 4.1 SPI ###
+
+```python
+from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
+from pyLibmpsse.spi import SPIInterface, SPIChannelConfig
+
+# Load the native DLLs (Windows only).
+bindings = LibMPSSELoader(
+    libmpsse_path=r"C:\path\to\libmpsse.dll",
+    ftd2xx_path="ftd2xx.dll",   # name on PATH, or an absolute path
+)
+
+spi = SPIInterface(bindings)
+print("SPI channels:", spi.get_num_channels())
+
+config = SPIChannelConfig(
+    clock_rate=1_000_000,   # 1 MHz
+    latency_timer=1,        # ms
+    config_options=0,       # MODE0, CS on DBUS3, active-high
+    pin=0x8B8B8B8B,         # initial/final pin direction & value
+)
+
+# Recommended: the context manager opens, initializes and always closes the channel.
+with spi.open_initialized(0, config) as handle:
+    rx = spi.read_write(handle, bytes([0x9F, 0x00, 0x00, 0x00]))
+    print("SPI read:", rx.hex())
+```
+
+### 4.2 I2C ###
+
+```python
+from pyLibmpsse.libmpsse_bindings import LibMPSSELoader
+from pyLibmpsse.i2c import I2CInterface, I2CChannelConfig
+from pyLibmpsse.consts import I2C_CLOCK_RATE, I2C_TRANSFER_OPTIONS
+
+bindings = LibMPSSELoader(
+    libmpsse_path=r"C:\path\to\libmpsse.dll",
+    ftd2xx_path="ftd2xx.dll",
+)
+
+i2c = I2CInterface(bindings)
+
+config = I2CChannelConfig(
+    clock_rate=I2C_CLOCK_RATE.I2C_CLOCK_FAST_MODE,  # 400 kHz
+    latency_timer=1,
+    options=0,
+    pin=0,
+)
+
+start_stop = (
+    I2C_TRANSFER_OPTIONS.I2C_TRANSFER_OPTIONS_START_BIT
+    | I2C_TRANSFER_OPTIONS.I2C_TRANSFER_OPTIONS_STOP_BIT
+)
+
+device_addr = 0x50  # 7-bit slave address
+with i2c.open_initialized(0, config) as handle:
+    i2c.write(handle, device_addr, bytes([0x00]), options=start_stop)
+    data = i2c.read(handle, device_addr, 4, options=start_stop)
+    print("I2C read:", data.hex())
+```
+
+## 5. Architecture ##
 
 ```text
 pyLibmpsse/
 ├── src/
-│   └── pyLibmpsse/                # 主包目录（src 布局）
-│       ├── __init__.py           # 包初始化，导出 SPIInterface / SPIChannelConfig 等
-│       ├── libmpsse_bindings.py  # 绑定层：加载 DLL，声明 C 函数原型，定义结构体
-│       ├── consts.py             # 常量层：FT_STATUS、SPI/I2C/GPIO 等枚举与常量
-│       ├── spi.py                # SPI 高层封装 + 低层绑定（含 GPIO 高层封装）
-│       └── errors.py             # 自定义异常类（PlatformError / DLLLoadError）
-├── tests/                        # 测试目录（pytest：集成测试 + 无硬件单元测试）
-├── scripts/                      # 辅助脚本（设置 DLL 环境变量并运行测试）
-├── doc/                          # FTDI 官方头文件与手册
-├── pyproject.toml                # 打包与构建配置（setuptools）
-├── requirements.txt
+│   └── pyLibmpsse/                # package
+│       ├── __init__.py           # initialize package, export SPIInterface / I2CInterface ...
+│       ├── libmpsse_bindings.py  # binding level: load DLL, declare C prototype function and struct.
+│       ├── consts.py             # const level: FT_STATUS、SPI/I2C/GPIO, eumn and other consts.
+│       ├── common.py             # Share structure (FTHandle / ChannelInfo)
+│       ├── spi.py                # SPI high level API + low level API (including GPIO function)
+│       ├── i2c.py                # I2C high level API + low level API (including GPIO function)
+│       └── errors.py             # Self defined exception（PlatformError / DLLLoadError）
+├── tests/                        # test directory
+├── scripts/                      # assistant script
+├── doc/                          # FTDI offical header file and doc
+├── pyproject.toml                # setuptools
+├── LICENSE
 └── README.md
 ```
 
-## 4. SPI low-level API pointer contract (C-style) ##
+## 6. SPI low-level API pointer contract (C-style) ##
 
 The low-level SPI methods are intended to stay close to the original C API.
 Rule of thumb:
@@ -39,7 +143,7 @@ Rule of thumb:
 - If the C prototype says T (non-pointer), pass a value/handle directly.
 - Do not pass Python int/bytes where a pointer is required.
 
-### 4.1 Per-function pointer requirements ###
+### 6.1 Per-function pointer requirements ###
 
 | Function | Parameter | C-side shape | Must be a pointer instance | Suggested ctypes value |
 |---|---|---|---|---|
@@ -60,7 +164,7 @@ Rule of thumb:
 | SPI_ChangeCS | handle | FT_HANDLE | No | ctypes.c_void_p(...) or returned handle |
 | SPI_ChangeCS | configOptions | uint32 | No | int or ctypes.c_uint32 |
 
-### 4.2 Important calling note ###
+### 6.2 Important calling note ###
 
 For low-level wrappers, keep one pointer layer only:
 
@@ -70,7 +174,7 @@ For low-level wrappers, keep one pointer layer only:
 
 Passing a NULL pointer (for example ctypes.POINTER(T)()) to output parameters is invalid unless the C API explicitly allows NULL.
 
-### 4.3 Minimal low-level examples ###
+### 6.3 Minimal low-level examples ###
 
 ```python
 # SPI_GetNumChannels
@@ -86,7 +190,7 @@ busy = ctypes.c_bool(False)
 status = spi.SPI_IsBusy(handle, ctypes.byref(busy))
 ```
 
-## 5. Integration tests: DLL path via environment variables ##
+## 7. Integration tests: DLL path via environment variables ##
 
 The integration tests under tests/ no longer hardcode local DLL paths.
 They read:
